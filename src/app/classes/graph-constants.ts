@@ -3,7 +3,7 @@ export const GraphConsts: any = {
 	startNodeLabel: 'start',
 	endNodeLabel: 'end',
 	nodeIdTag: 'node',
-	
+
 	selectedClass: 'selected',
 	connectClass: 'connect-node',
 	boxGClass: 'conceptG',
@@ -11,6 +11,5 @@ export const GraphConsts: any = {
 	activeEditId: 'active-editing',
 	BACKSPACE_KEY: 8,
 	DELETE_KEY: 46,
-	ENTER_KEY: 13,
-	nodeRadius: 50
+	ENTER_KEY: 13
 };
