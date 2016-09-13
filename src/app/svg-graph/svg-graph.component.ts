@@ -333,7 +333,6 @@ export class SvgGraphComponent implements OnInit {
           .attr("contentEditable", "true")
           .text(d.title)
           .on("blur", function(d) {
-            debugger;
               d.title = this.textContent;
               thisGraph.insertTitleLinebreaks(d3node, d.title);
               d3.select(this.parentElement).remove();
@@ -513,19 +512,18 @@ export class SvgGraphComponent implements OnInit {
         .style("stroke-width", 1);
 
     // RC: Append addSerial button
-    startNode.append("circle")
+    var button = startNode.append("g").on("mouseup", (d) => {
+           this.appendSerialNode(d);
+        });
+
+    button.append("circle")
         .attr("r", settings.buttonRadius)
         .attr("cx", settings.nodeHeight / 2 + 20)
         .style("fill", "white")
         .style("stroke", "gray")
-        .style("stroke-width", 1)
-        .on("mouseup", (d) => {
-           this.appendSerialNode(d);
-        });
+        .style("stroke-width", 1);
 
-    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
-    startNode.each(function(d) {
-
+    button.each(function(d) {
         // For serial button
         d3.select(this).append("text")
             .text("+")
@@ -535,24 +533,26 @@ export class SvgGraphComponent implements OnInit {
             })
             .attr("dx", settings.nodeHeight / 2 + 20 - pxDifferenceToCenterFont)
             .attr("dy", pxDifferenceToCenterFont);
+    });
 
+    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
+    startNode.each(function(d) {
         thisGraph.insertTitleLinebreaks(d3.select(this), d.title);
     });
 
     // RC: Prepend addSerial button
-    endNode.append("circle")
+    button = endNode.append("g").on("mouseup", (d) => {
+          this.prependSerialNode(d);
+        });
+
+    button.append("circle")
         .attr("r", settings.buttonRadius)
         .attr("cx", -(settings.nodeHeight / 2 + 20))
         .style("fill", "white")
         .style("stroke", "gray")
-        .style("stroke-width", 1)
-        .on("mouseup", (d) => {
-          this.prependSerialNode(d);
-        });
+        .style("stroke-width", 1);
 
-    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
-    endNode.each(function(d) {
-
+    button.each(function(d) {
         // For serial button
         d3.select(this).append("text")
             .text("+")
@@ -562,14 +562,16 @@ export class SvgGraphComponent implements OnInit {
             })
             .attr("dx", - (settings.nodeHeight / 2 + 20 + pxDifferenceToCenterFont))
             .attr("dy", pxDifferenceToCenterFont);
+    });
 
+    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
+    endNode.each(function(d) {
         thisGraph.insertTitleLinebreaks(d3.select(this), d.title);
     });
   }
 
   // RC: create new parallel node with edge
   appendParallelNode(d: any) {
-    debugger;
     var settings = this.settings;
     var xycoords = [d.x, d.y + settings.nodeHeight * settings.pathMultiplier];
     var newNode = this.pushNewNode(xycoords);
@@ -643,31 +645,18 @@ export class SvgGraphComponent implements OnInit {
 
 
     // RC: Append addSerial button
-    approvalBoxGs.append("circle")
+    var button = approvalBoxGs.append("g").on("mouseup", (d) => {
+          this.appendSerialNode(d);
+        });
+
+    button.append("circle")
         .attr("r", settings.buttonRadius)
         .attr("cx", settings.nodeWidth / 2 + 20)
         .style("fill", "white")
         .style("stroke", "gray")
-        .style("stroke-width", 1)
-        .on("mouseup", (d) => {
-          this.appendSerialNode(d);
-        });
+        .style("stroke-width", 1);
 
-
-    // RC: Append addParallel button
-    approvalBoxGs.append("circle")
-        .attr("r", settings.buttonRadius)
-        .attr("cy", settings.nodeHeight / 2 + 20)
-        .style("fill", "white")
-        .style("stroke", "gray")
-        .style("stroke-width", 1)
-        .on("mouseup", (d) => {
-          this.appendParallelNode(d);
-        });
-
-    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
-    approvalBoxGs.each(function(d) {
-
+    button.each(function(d) {
         // For serial button
         d3.select(this).append("text")
             .text("+")
@@ -677,7 +666,21 @@ export class SvgGraphComponent implements OnInit {
             })
             .attr("dx", settings.nodeWidth / 2 + 20 - pxDifferenceToCenterFont)
             .attr("dy", pxDifferenceToCenterFont);
+    });
 
+    // RC: Append addParallel button
+    button = approvalBoxGs.append("g").on("mouseup", (d) => {
+          this.appendParallelNode(d);
+        });
+
+    button.append("circle")
+        .attr("r", settings.buttonRadius)
+        .attr("cy", settings.nodeHeight / 2 + 20)
+        .style("fill", "white")
+        .style("stroke", "gray")
+        .style("stroke-width", 1);
+
+    button.each(function(d) {
         // For parallel button
         d3.select(this).append("text")
             .text("+")
@@ -687,7 +690,10 @@ export class SvgGraphComponent implements OnInit {
             })
             .attr("dy", settings.nodeHeight / 2 + 20 + pxDifferenceToCenterFont)
             .attr("dx", -pxDifferenceToCenterFont);
+    });
 
+    // RC: This is used for Text boxes for putting icons... for some reason text needs to be in a group (g)
+    approvalBoxGs.each(function(d) {
         thisGraph.insertTitleLinebreaks(d3.select(this), d.title);
     });
 
