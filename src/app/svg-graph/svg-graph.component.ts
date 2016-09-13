@@ -1,6 +1,4 @@
 import * as D3 from 'd3';
-import { drag } from 'd3-drag';
-import { event } from 'd3-selection';
 import { Component, OnInit } from '@angular/core';
 import { Node, Edge, RenderConfig, GraphConsts, NodeStates } from '../classes';
 
@@ -248,24 +246,6 @@ export class SvgGraphComponent implements OnInit {
       });
   };
 
-  replaceSelectEdge(d3Path: any, edgeData: Edge) {
-      var thisGraph = this;
-      d3Path.classed(GraphConsts.selectedClass, true);
-      if (thisGraph.state.selectedEdge) {
-          thisGraph.removeSelectFromEdge();
-      }
-      thisGraph.state.selectedEdge = edgeData;
-  };
-
-  replaceSelectNode(d3Node: any, nodeData: Node) {
-      var thisGraph = this;
-      d3Node.classed(GraphConsts.selectedClass, true);
-      if (thisGraph.state.selectedNode) {
-          thisGraph.removeSelectFromNode();
-      }
-      thisGraph.state.selectedNode = nodeData;
-  };
-
   removeSelectFromNode() {
       var thisGraph = this;
       var d3objects = this.d3objects;
@@ -283,25 +263,6 @@ export class SvgGraphComponent implements OnInit {
           return cd === thisGraph.state.selectedEdge;
       }).classed(GraphConsts.selectedClass, false);
       thisGraph.state.selectedEdge = null;
-  };
-
-  pathMouseDown(d3path: any, d: any) {
-      var thisGraph = this,
-          state = thisGraph.state;
-
-      event.sourceEvent.stopPropagation(); 
-      state.mouseDownLink = d;
-
-      if (state.selectedNode) {
-          thisGraph.removeSelectFromNode();
-      }
-
-      var prevEdge = state.selectedEdge;
-      if (!prevEdge || prevEdge !== d) {
-          thisGraph.replaceSelectEdge(d3path, d);
-      } else {
-          thisGraph.removeSelectFromEdge();
-      }
   };
 
   /* place editable text on node in place of svg text */
@@ -346,8 +307,8 @@ export class SvgGraphComponent implements OnInit {
       var dy: number = targetY - sourceY;
 
       var linePath = 'M' + sourceX + ',' + sourceY +
-          'L' + (sourceX + (dx / 2)) + ',' + sourceY +
-          'L' + (sourceX + (dx / 2)) + ',' + targetY +
+          'L' + (targetX - (dx / 2)) + ',' + sourceY +
+          'L' + (targetX - (dx / 2)) + ',' + targetY +
           'L' + targetX + ',' + targetY;
 
       return linePath;
@@ -462,26 +423,30 @@ export class SvgGraphComponent implements OnInit {
       }
   };
 
-  // keydown on main svg
-  deleteItem() {
+  deleteNode(selectedNode: Node) {
       var thisGraph = this,
-          state = this.state,
-          consts = GraphConsts;
-
-      var selectedNode = state.selectedNode,
-          selectedEdge = state.selectedEdge;
+          state = this.state;
 
       if (selectedNode) {
           thisGraph.nodes.splice(thisGraph.nodes.indexOf(selectedNode), 1);
           thisGraph.spliceLinksForNode(selectedNode);
           state.selectedNode = null;
           thisGraph.updateGraph();
-      } else if (selectedEdge) {
+
+          // TODO: push new edges that reconects the nodes
+      } 
+  };
+
+  deleteEdge(selectedEdge: Edge) {
+    var thisGraph = this,
+        state = this.state;
+
+    if (selectedEdge) {
           thisGraph.edges.splice(thisGraph.edges.indexOf(selectedEdge), 1);
           state.selectedEdge = null;
           thisGraph.updateGraph();
       }
-  };
+  }
 
 
   renderStartEndNodes(newGs: any) {
@@ -642,7 +607,17 @@ export class SvgGraphComponent implements OnInit {
             return "translate(-" + settings.nodeWidth / 2 + ", -" + settings.nodeHeight / 2 + ")";
         });
 
-
+    // Append delete button
+    approvalBoxGs.append("circle")
+        .attr("r", settings.buttonRadius)
+        .attr("cx", settings.nodeWidth / 2)
+        .attr("cy", -settings.nodeHeight / 2)
+        .style("fill", "white")
+        .style("stroke", "gray")
+        .style("stroke-width", 1)
+        .on("mouseup", (d) => {
+          this.deleteNode(d);
+        });
 
     // RC: Append addSerial button
     var button = approvalBoxGs.append("g").on("mouseup", (d) => {
