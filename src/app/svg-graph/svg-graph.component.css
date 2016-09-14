@@ -26,6 +26,10 @@ body{
     overflow: auto;
 }
 
+#hidden-meta-input {
+    display: none;
+}
+
 #toolbox{
     position: absolute;
     bottom: 0;

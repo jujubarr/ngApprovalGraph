@@ -133,6 +133,48 @@ export class SvgGraphComponent implements OnInit {
     // svg nodes and edges
     d3objects.paths = svgG.append("g").attr("id", "paths-group").selectAll("g");
     d3objects.boxes = svgG.append("g").attr("id", "nodes-group").selectAll("g");
+    d3objects.tools = svgG.append("g").attr("id", "tools-group");
+    
+    var outputButton = d3objects.tools.append("g")
+        .on("mouseup", (d) => {
+           this.outputGraphMetadata();
+        })
+        .attr("transform", "translate(5, 5)");
+
+    outputButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 30)
+        .style("fill", "white")
+        .style("stroke", "gray")
+        .style("stroke-width", 1)
+        
+
+    outputButton.append("text")
+        .text("Output")
+        .attr("font-size", 16)
+        .attr("dx",8)
+        .attr("dy", 20);
+
+
+    var inputButton = d3objects.tools.append("g")
+        .on("mouseup", (d) => {
+           document.getElementById('hidden-meta-input').click();
+        })
+        .attr("transform", "translate(70, 5)");
+
+    inputButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 30)
+        .style("fill", "white")
+        .style("stroke", "gray")
+        .style("stroke-width", 1);
+
+    inputButton.append("text")
+        .text("Input")
+        .attr("font-size", 16)
+        .attr("dx", 13)
+        .attr("dy", 20);
+
 
     // Draw graph
   	this.updateGraph();
@@ -159,7 +201,7 @@ export class SvgGraphComponent implements OnInit {
         node.dep = dependencies;
     });
 
-    var jsonObj = { "nodes": thisGraph.nodes, "edges": saveEdges };
+    var jsonObj = { "nodes": thisGraph.nodes, "edges": saveEdges, "svgWidth": this.svgWidth, "svgHeight": this.svgHeight };
     var blob = new Blob([window.JSON.stringify(jsonObj)], { type: "text/plain;charset=utf-8" });
     // saveAs(blob, "mydag.json");
     console.log(window.JSON.stringify(jsonObj, null, 4));
@@ -179,6 +221,9 @@ export class SvgGraphComponent implements OnInit {
               thisGraph.deleteGraph(true);
               thisGraph.nodes = jsonObj.nodes;
               thisGraph.idct = jsonObj.nodes.length + 1;
+              thisGraph.svgWidth = jsonObj.svgWidth;
+              thisGraph.svgHeight = jsonObj.svgHeight;
+
               var newEdges = jsonObj.edges;
               newEdges.forEach(function(e, i) {
                   newEdges[i] = {
@@ -190,6 +235,7 @@ export class SvgGraphComponent implements OnInit {
                       })[0]
                   };
               });
+
               thisGraph.edges = newEdges;
               thisGraph.updateGraph();
           } catch (err) {
@@ -474,7 +520,6 @@ export class SvgGraphComponent implements OnInit {
       // expand our svg div horizontally for scrolling
       if (expand) {
         thisGraph.svgWidth += settings.nodeWidth * settings.pathMultiplier;
-        thisGraph.d3objects.svg.attr("width", thisGraph.svgWidth);
       }
 
       thisGraph.edges.push(newEdge);
@@ -516,7 +561,6 @@ export class SvgGraphComponent implements OnInit {
           // expand our svg div vertically for scrolling
           if (thisGraph.nodes[i].y >= thisGraph.svgHeight) {
             thisGraph.svgHeight += settings.nodeHeight * settings.pathMultiplier;
-            thisGraph.d3objects.svg.attr("height", thisGraph.svgHeight);
           }
       }
   };
@@ -828,6 +872,11 @@ export class SvgGraphComponent implements OnInit {
     paths.exit().remove();
   }
 
+  updateSvgDimensions() {
+    this.d3objects.svg.attr("width", this.svgWidth);
+    this.d3objects.svg.attr("height", this.svgHeight);
+  }
+
   // call to propagate changes to graph
   updateGraph() {
 
@@ -868,15 +917,7 @@ export class SvgGraphComponent implements OnInit {
       this.renderStartEndNodes(newGs);
       this.updateApprovalBoxes(newGs);
       this.updatePaths();
-  };
-
-
-  updateWindow(svg: any) {
-      var docEl = document.documentElement,
-          bodyEl = document.getElementsByTagName('body')[0];
-      var x = window.innerWidth || docEl.clientWidth || bodyEl.clientWidth;
-      var y = window.innerHeight || docEl.clientHeight || bodyEl.clientHeight;
-      svg.attr("width", x).attr("height", y);
+      this.updateSvgDimensions();
   };
 
 }
