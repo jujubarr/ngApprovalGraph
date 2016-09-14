@@ -123,8 +123,8 @@ export class SvgGraphComponent implements OnInit {
         .style('marker-end', 'url(#mark-end-arrow)');
 
     // svg nodes and edges
-    d3objects.paths = svgG.append("g").selectAll("g");
-    d3objects.boxes = svgG.append("g").selectAll("g");
+    d3objects.paths = svgG.append("g").attr("id", "paths-group").selectAll("g");
+    d3objects.boxes = svgG.append("g").attr("id", "nodes-group").selectAll("g");
 
     // Draw graph
   	this.updateGraph();
@@ -235,15 +235,79 @@ export class SvgGraphComponent implements OnInit {
       }
   };
 
-  // remove edges associated with a node
+  // remove edges associated with a node & create a new one that connects them
   spliceLinksForNode(node: Node) {
       var thisGraph = this,
-          toSplice = thisGraph.edges.filter(function(l) {
-              return (l.source === node || l.target === node);
-          });
-      toSplice.map(function(l) {
-          thisGraph.edges.splice(thisGraph.edges.indexOf(l), 1);
+          settings = this.settings;
+      var toSplice = [];
+
+      var target: Node;
+      var sources: Node[] = [];
+      var sourceEdges: Edge[] = [];
+
+      for (var i = 0; i < thisGraph.edges.length; i++) {
+        var n = thisGraph.edges[i];
+
+        // one to one
+        if (n.source === node) {
+          toSplice.push(n);
+          target = thisGraph.nodes.filter(function(d) {
+            return d.id == n.target.id;
+          })[0];
+        }
+        // many to one
+        else if (n.target === node) {
+          toSplice.push(n);
+          sources.push(n.source);
+        }
+      }
+
+      // Remove the edges connected to the selectedNode
+      toSplice.map(function(n) {
+          thisGraph.edges.splice(thisGraph.edges.indexOf(n), 1);
       });
+
+
+      // Create new connecting edges if delete serial node 
+      // We dont need new edges if there are no other nodes in serial
+      for (var i = 0; i < sources.length; i++) {
+        var source = sources[i];
+        
+        if (node.y == source.y || node.y == target.y) {
+          var newEdge = {
+            target: target,
+            source: source
+          };
+          thisGraph.edges.push(newEdge);
+        }
+      }
+
+      // Get all edges with target of target.id
+      sourceEdges = thisGraph.edges.filter(function(d) {
+        return d.target.id == target.id;
+      });
+
+
+
+      // Relayout the nodes
+      var move = true;
+      for (var i = 0; i < sourceEdges.length; i++) {
+        var source = sourceEdges[i].source;
+        
+        if (target.x < (source.x + (settings.nodeWidth * 1.5)*2)) {
+          move = false;
+          break;
+        }
+      }
+      if (move) {
+        for (var i = 0; i < thisGraph.nodes.length; i++) {
+            if (thisGraph.nodes[i].x > target.x || thisGraph.nodes[i] == target) {
+              thisGraph.nodes[i].x -= settings.nodeWidth * settings.pathMultiplier;
+            }
+        }
+      }
+
+
   };
 
   removeSelectFromNode() {
@@ -342,6 +406,7 @@ export class SvgGraphComponent implements OnInit {
       var thisGraph = this;
       var settings = this.settings;
       var newEdge: Edge;
+      var modifiedEdge: Edge;
 
       if (end) {
 
@@ -355,6 +420,7 @@ export class SvgGraphComponent implements OnInit {
               if (edge.target.id == source.id) {
                   // Modify edge and push it back into array so that it will be redrawn
                   edge.target = target;
+                  modifiedEdge = edge;
               }
           } 
 
@@ -372,6 +438,7 @@ export class SvgGraphComponent implements OnInit {
               if (edge.source.id == source.id) {
                   // Modify edge and push it back into array so that it will be redrawn
                   edge.source = target;
+                  modifiedEdge = edge;
               }
           } 
 
@@ -379,9 +446,17 @@ export class SvgGraphComponent implements OnInit {
       }
 
       // Move the nodes down if a node is inserted in the middle
+      var leftNode = thisGraph.nodes.filter(function(data) {
+        return data.id == modifiedEdge.target.id;
+      });
+
       for (var i in thisGraph.nodes) {
-          if (thisGraph.nodes[i].x >= target.x && thisGraph.nodes[i] != target) {
-              thisGraph.nodes[i].x += settings.nodeWidth * settings.pathMultiplier;
+          if (leftNode.length > 0 && target.x < leftNode[0].x) {
+            // There is enough space, don't need to move them...
+            break;
+          }
+          else if (thisGraph.nodes[i].x >= target.x && thisGraph.nodes[i] != target) {
+            thisGraph.nodes[i].x += settings.nodeWidth * settings.pathMultiplier;
           }
       }
 
@@ -432,8 +507,6 @@ export class SvgGraphComponent implements OnInit {
           thisGraph.spliceLinksForNode(selectedNode);
           state.selectedNode = null;
           thisGraph.updateGraph();
-
-          // TODO: push new edges that reconects the nodes
       } 
   };
 
@@ -580,22 +653,6 @@ export class SvgGraphComponent implements OnInit {
       return this.getAttribute('class').includes("approval-box"); 
     });
 
-    // var hiddenBoxGs = newGs.filter(function(d) {
-    //   return this.getAttribute('class').includes("hidden-box"); 
-    // });
-
-    // // RC: Append hidden / invisible boxes for pretty parallel box rendering
-    // hiddenBoxGs.append("rect")
-    //     .attr("width", settings.nodeWidth)
-    //     .attr("height", settings.nodeHeight)
-    //     .style("fill", "white")
-    //     .style("stroke", "gray")
-    //     .style("stroke-width", 1)
-    //     .attr("transform", function(d) {
-    //         return "translate(-" + settings.nodeWidth / 2 + ", -" + settings.nodeHeight / 2 + ")";
-    //     });
-
-
     // RC: Append new approvalBox
     approvalBoxGs.append("rect")
         .attr("width", settings.nodeWidth)
@@ -684,7 +741,8 @@ export class SvgGraphComponent implements OnInit {
       consts = GraphConsts,
       state = this.state;
 
-    d3objects.paths = d3objects.paths.data(thisGraph.edges, function(d) {
+
+    d3objects.paths = d3.select("#paths-group").selectAll("path").data(thisGraph.edges, function(d) {
         return String(d.source.id) + "+" + String(d.target.id);
     });
 
@@ -708,24 +766,35 @@ export class SvgGraphComponent implements OnInit {
         .attr("fill", "none")
         .classed("link", true);
 
-    // update old paths
+    /*
+      update old paths:
+      this recalculates the paths to point to the new node 
+      coordinates based on where it currently is in the DOM
+      because the xy-coordinates in nodes[] might be outdated
+    */
     d3objects.paths.data(thisGraph.edges).attr("d", function(d) {
-        // draw path from item to the mouse coordinates in the graph (svgG means svg g.graph)
-        if (d.source.id == "startNode" || d.target.id == "endNode") {
-            return thisGraph.stepLinePath(d.source.x, d.source.y, d.target.x, d.target.y);
-        }
-        else {
-            var source = document.getElementById(d.source.id).getBoundingClientRect();
-            var target = document.getElementById(d.target.id).getBoundingClientRect();
+      var sid = d.source.id;
+      var tid = d.target.id;
 
-            return thisGraph.stepLinePath(source.left + settings.nodeWidth / 2, source.top + settings.nodeHeight / 2, target.left + settings.nodeWidth / 2, target.top + settings.nodeHeight / 2);
-            // return thisGraph.stepLinePath(source.left, source.top+settings.nodeHeight/2, target.left, target.top+settings.nodeHeight/2);
-        }
+      var source = thisGraph.nodes.filter(function(data) {
+        return data.id == sid;
+      });
+
+      var target = thisGraph.nodes.filter(function(data) {
+        return data.id == tid;
+      });
+
+      if (source.length > 0 && target.length > 0) {
+        // Use the coordinates from node instead of edge
+        return thisGraph.stepLinePath(source[0].x, source[0].y, target[0].x, target[0].y);
+      }
+      else {
+        return thisGraph.stepLinePath(d.source.x, d.source.y, d.target.x, d.target.y)
+      }
     });
 
     // remove old links
     paths.exit().remove();
-
   }
 
   // call to propagate changes to graph
@@ -738,9 +807,10 @@ export class SvgGraphComponent implements OnInit {
           state = this.state;
 
       // update existing nodes
-      d3objects.boxes = d3objects.boxes.data(thisGraph.nodes, function(d) {
+      d3objects.boxes = d3.select("#nodes-group").selectAll(".conceptG").data(thisGraph.nodes, function(d) {
           return d.id;
       });
+
       d3objects.boxes.attr("transform", function(d) {
           return "translate(" + d.x + "," + d.y + ")";
       });
