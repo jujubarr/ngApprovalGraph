@@ -35,14 +35,7 @@ export class SvgGraphComponent implements OnInit {
 
     this.state = {
         selectedNode: null,
-        selectedEdge: null,
-        mouseDownNode: null,
-        mouseDownLink: null,
-        justDragged: false,
-        justScaleTransGraph: false,
-        lastKeyDown: -1,
-        shiftNodeDrag: false,
-        selectedText: null
+        selectedEdge: null
     };
   }
 
@@ -94,8 +87,8 @@ export class SvgGraphComponent implements OnInit {
   	this.nodes.push(approver);
 
     // Init edges that properly point to the nodes
-    this.edges.push({ source: startNode, target: approver });
-    this.edges.push({ source: approver, target: endNode });
+    this.edges.push({ source: startNode.id, target: approver.id });
+    this.edges.push({ source: approver.id, target: endNode.id });
 
     // Define arrow markers for graph links in d3
     var defs = svg.append('svg:defs');
@@ -184,15 +177,11 @@ export class SvgGraphComponent implements OnInit {
 
     // when user clicks saveButton, do this.
     var thisGraph = this;
-    var saveEdges = [];
-    thisGraph.edges.forEach(function(val, i) {
-        saveEdges.push({ source: val.source.id, target: val.target.id });
-    });
 
     thisGraph.nodes.forEach(function(node, i) {
         var dependencies = [];
 
-        saveEdges.forEach(function(edge, i) {
+        thisGraph.edges.forEach(function(edge, i) {
             if (edge.target === node.id) {
                 dependencies.push(edge.source);
             }
@@ -201,9 +190,9 @@ export class SvgGraphComponent implements OnInit {
         node.dep = dependencies;
     });
 
-    var jsonObj = { "nodes": thisGraph.nodes, "edges": saveEdges, "svgWidth": this.svgWidth, "svgHeight": this.svgHeight };
+    var jsonObj = { "nodes": thisGraph.nodes, "edges": thisGraph.edges, "svgWidth": this.svgWidth, "svgHeight": this.svgHeight };
     var blob = new Blob([window.JSON.stringify(jsonObj)], { type: "text/plain;charset=utf-8" });
-    // saveAs(blob, "mydag.json");
+
     console.log(window.JSON.stringify(jsonObj, null, 4));
   }
 
@@ -218,25 +207,15 @@ export class SvgGraphComponent implements OnInit {
           // TODO better error handling
           try {
               var jsonObj = JSON.parse(txtRes);
-              thisGraph.deleteGraph(true);
+
               thisGraph.nodes = jsonObj.nodes;
+              thisGraph.edges = jsonObj.edges;
+
               thisGraph.idct = jsonObj.nodes.length + 1;
+
               thisGraph.svgWidth = jsonObj.svgWidth;
               thisGraph.svgHeight = jsonObj.svgHeight;
 
-              var newEdges = jsonObj.edges;
-              newEdges.forEach(function(e, i) {
-                  newEdges[i] = {
-                      source: thisGraph.nodes.filter(function(n) {
-                          return n.id == e.source;
-                      })[0],
-                      target: thisGraph.nodes.filter(function(n) {
-                          return n.id == e.target;
-                      })[0]
-                  };
-              });
-
-              thisGraph.edges = newEdges;
               thisGraph.updateGraph();
           } catch (err) {
               window.alert("Error parsing uploaded file\nerror message: " + err.message);
@@ -248,6 +227,16 @@ export class SvgGraphComponent implements OnInit {
     } else {
         alert("Your browser won't let you save this graph -- try upgrading your browser to IE 10+ or Chrome or Firefox.");
     }
+  }
+
+  // returns a map of nodes
+  getNodes() {
+    var map = this.nodes.reduce(function ( nodes, node ) {
+        nodes[ node.id ] = node;
+        return nodes;
+    }, {});
+
+    return map;
   }
 
   deleteGraph(skipPrompt: boolean) {
@@ -296,23 +285,21 @@ export class SvgGraphComponent implements OnInit {
       var toSplice = [];
 
       var target: Node;
-      var sources: Node[] = [];
+      var sources = [];
       var sourceEdges: Edge[] = [];
+      var nodeMap = thisGraph.getNodes();
 
       for (var i = 0; i < thisGraph.edges.length; i++) {
-        var n = thisGraph.edges[i];
-
+        var e = thisGraph.edges[i];
         // one to one
-        if (n.source === node) {
-          toSplice.push(n);
-          target = thisGraph.nodes.filter(function(d) {
-            return d.id == n.target.id;
-          })[0];
+        if (e.source === node.id) {
+          toSplice.push(e);
+          target = nodeMap[e.target];
         }
         // many to one
-        else if (n.target === node) {
-          toSplice.push(n);
-          sources.push(n.source);
+        else if (e.target === node.id) {
+          toSplice.push(e);
+          sources.push(e.source);
         }
       }
 
@@ -322,31 +309,15 @@ export class SvgGraphComponent implements OnInit {
       });
 
 
-      // Create new connecting edges if delete serial node 
-      // We dont need new edges if there are no other nodes in serial
-      for (var i = 0; i < sources.length; i++) {
-        var source = sources[i];
-        
-        if (node.y == source.y || node.y == target.y) {
-          var newEdge = {
-            target: target,
-            source: source
-          };
-          thisGraph.edges.push(newEdge);
-        }
-      }
-
       // Get all edges with target of target.id
       sourceEdges = thisGraph.edges.filter(function(d) {
-        return d.target.id == target.id;
+        return d.target == target.id;
       });
-
-
-
       // Relayout the nodes
       var move = true;
       for (var i = 0; i < sourceEdges.length; i++) {
-        var source = sourceEdges[i].source;
+        var id = sourceEdges[i].source;
+        var source = nodeMap[id];
         
         if (target.x < (source.x + (settings.nodeWidth * 1.5)*2)) {
           move = false;
@@ -355,13 +326,27 @@ export class SvgGraphComponent implements OnInit {
       }
       if (move) {
         for (var i = 0; i < thisGraph.nodes.length; i++) {
-            if (thisGraph.nodes[i].x > target.x || thisGraph.nodes[i] == target) {
+            if (thisGraph.nodes[i].x > target.x || thisGraph.nodes[i].id == target.id) {
               thisGraph.nodes[i].x -= settings.nodeWidth * settings.pathMultiplier;
             }
         }
       }
 
 
+      // Create new connecting edges if delete serial node 
+      // We dont need new edges if there are no other nodes in serial
+      nodeMap = thisGraph.getNodes();
+      for (var i = 0; i < sources.length; i++) {
+        var source = nodeMap[sources[i]];
+        
+        if (node.y == source.y || node.y == target.y) {
+          var newEdge = {
+            target: target.id,
+            source: source.id
+          };
+          thisGraph.edges.push(newEdge);
+        }
+      }
   };
 
   removeSelectFromNode() {
@@ -471,15 +456,15 @@ export class SvgGraphComponent implements OnInit {
               // remember that target is the newNode & source is the one before it
               // we want the previous node to point to the newNode
               // source = endNode & target = newNode
-              if (edge.target.id == source.id) {
+              if (edge.target == source.id) {
                   // Modify edge and push it back into array so that it will be redrawn
-                  edge.target = target;
+                  edge.target = target.id;
                   modifiedEdge = edge;
               }
           } 
 
           // we want the newNode to point to the endNode
-          newEdge = { source: target, target: source };
+          newEdge = { source: target.id, target: source.id };
       }
       else {
 
@@ -489,24 +474,23 @@ export class SvgGraphComponent implements OnInit {
 
               // remember that target is the newNode & source is the one before it
               // we want the newNode to point to the node that had a dependency on source
-              if (edge.source.id == source.id) {
+              if (edge.source == source.id) {
                   // Modify edge and push it back into array so that it will be redrawn
-                  edge.source = target;
+                  edge.source = target.id;
                   modifiedEdge = edge;
               }
           } 
 
-          newEdge = { source: source, target: target };
+          newEdge = { source: source.id, target: target.id };
       }
 
       // Move the nodes down if a node is inserted in the middle
-      var leftNode = thisGraph.nodes.filter(function(data) {
-        return data.id == modifiedEdge.target.id;
-      });
+      var nodeMap = this.getNodes();
+      var leftNode = nodeMap[modifiedEdge.target];
 
       var expand = false;
       for (var i in thisGraph.nodes) {
-          if (leftNode.length > 0 && target.x < leftNode[0].x) {
+          if (target.x < leftNode.x) {
             // There is enough space, don't need to move them...
             break;
           }
@@ -532,29 +516,9 @@ export class SvgGraphComponent implements OnInit {
       var thisGraph = this;
       var settings = this.settings;
 
-      // For each edge in the entire graph
-      for (var i in thisGraph.edges) {
-          var edge = thisGraph.edges[i];
-
-          // remember that target is the newNode & source is the one before it
-          // we want the newNode to point to the node that had a dependency on source
-          if (thisGraph.edges[i].target.id == source.id) {
-              // This is the left edge
-              var newEdge = JSON.parse(JSON.stringify(edge)); // clone the edge object
-              newEdge.target = target; 
-              thisGraph.edges.push(newEdge);
-          }
-          else if (thisGraph.edges[i].source.id == source.id) {
-              // This is the left edge
-              var newEdge = JSON.parse(JSON.stringify(edge)); // clone the edge object
-              newEdge.source = target; 
-              thisGraph.edges.push(newEdge);
-          }
-      } 
-
       // Move the nodes down if a node is inserted in the middle
       for (var i in thisGraph.nodes) {
-          if (thisGraph.nodes[i].y >= target.y && thisGraph.nodes[i] != target) {
+          if (thisGraph.nodes[i].y >= target.y && thisGraph.nodes[i].id != target.id) {
               thisGraph.nodes[i].y += settings.nodeHeight * settings.pathMultiplier;
           }
 
@@ -562,7 +526,31 @@ export class SvgGraphComponent implements OnInit {
           if (thisGraph.nodes[i].y >= thisGraph.svgHeight) {
             thisGraph.svgHeight += settings.nodeHeight * settings.pathMultiplier;
           }
+
+          if (thisGraph.nodes[i].id == target.id) {
+            target = thisGraph.nodes[i];
+          }
       }
+
+      // For each edge in the entire graph
+      for (var i in thisGraph.edges) {
+          var edge = thisGraph.edges[i];
+
+          // remember that target is the newNode & source is the one before it
+          // we want the newNode to point to the node that had a dependency on source
+          if (thisGraph.edges[i].target == source.id) {
+              // This is the left edge
+              var newEdge = JSON.parse(JSON.stringify(edge)); // clone the edge object
+              newEdge.target = target.id; 
+              thisGraph.edges.push(newEdge);
+          }
+          else if (thisGraph.edges[i].source == source.id) {
+              // This is the right edge
+              var newEdge = JSON.parse(JSON.stringify(edge)); // clone the edge object
+              newEdge.source = target.id; 
+              thisGraph.edges.push(newEdge);
+          }
+      } 
   };
 
   deleteNode(selectedNode: Node) {
@@ -685,7 +673,7 @@ export class SvgGraphComponent implements OnInit {
     this.pushNewParallelEdges(d, newNode);
     this.updateGraph();
 
-    console.log("parallel" + window.JSON.stringify(newNode));
+    // console.log("parallel" + window.JSON.stringify(newNode));
   }
 
   // RC: create new serial node with edge
@@ -698,7 +686,7 @@ export class SvgGraphComponent implements OnInit {
     this.pushNewSerialEdges(d, newNode, false);
     this.updateGraph();
 
-    console.log("serial" + window.JSON.stringify(newNode));
+    // console.log("serial" + window.JSON.stringify(newNode));
   }
 
   // RC: create new serial node with edge (used for EndNode)
@@ -823,6 +811,7 @@ export class SvgGraphComponent implements OnInit {
 
     // update existing paths
     var paths = d3objects.paths;
+    var nodeMap = thisGraph.getNodes();
 
     paths.style('marker-end', 'url(#end-arrow)')
         .classed(consts.selectedClass, function(d) {
@@ -833,8 +822,11 @@ export class SvgGraphComponent implements OnInit {
     paths.enter()
         .append("path")
         .style('marker-end', 'url(#end-arrow)')
-        .attr("d", function(d) {
-            return thisGraph.stepLinePath(d.source.x, d.source.y, d.target.x, d.target.y);
+        .attr("d", function(d: any) {
+            var source = nodeMap[d.source];
+            var target = nodeMap[d.target];
+
+            return thisGraph.stepLinePath(source.x, source.y, target.x, target.y);
         })
         .attr("stroke-width", "6px")
         .attr("stroke", "#333")
@@ -847,25 +839,17 @@ export class SvgGraphComponent implements OnInit {
       coordinates based on where it currently is in the DOM
       because the xy-coordinates in nodes[] might be outdated
     */
-    d3objects.paths.data(thisGraph.edges).attr("d", function(d) {
-      var sid = d.source.id;
-      var tid = d.target.id;
+    d3objects.paths.data(thisGraph.edges).attr("d", function(d: any) {
+      var source = nodeMap[d.source];
+      var target = nodeMap[d.target];
 
-      var source = thisGraph.nodes.filter(function(data) {
-        return data.id == sid;
-      });
-
-      var target = thisGraph.nodes.filter(function(data) {
-        return data.id == tid;
-      });
-
-      if (source.length > 0 && target.length > 0) {
-        // Use the coordinates from node instead of edge
-        return thisGraph.stepLinePath(source[0].x, source[0].y, target[0].x, target[0].y);
-      }
-      else {
-        return thisGraph.stepLinePath(d.source.x, d.source.y, d.target.x, d.target.y)
-      }
+      return thisGraph.stepLinePath(source.x, source.y, target.x, target.y);
+      // if (source.length > 0 && target.length > 0) {
+      //   // Use the coordinates from node instead of edge
+      // }
+      // else {
+      //   return thisGraph.stepLinePath(d.source.x, d.source.y, d.target.x, d.target.y)
+      // }
     });
 
     // remove old links
