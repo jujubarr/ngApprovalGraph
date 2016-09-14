@@ -16,6 +16,8 @@ export class SvgGraphComponent implements OnInit {
 	nodes: Node[];
 	edges: Edge[];
   idct: number;
+  svgWidth: number;
+  svgHeight: number;
 
   state: any;
 
@@ -28,6 +30,8 @@ export class SvgGraphComponent implements OnInit {
   	this.edges = [];
   	this.idct = 1;
     this.d3objects = {};
+    this.svgWidth = this.settings.initSvgWidth;
+    this.svgHeight = this.settings.initSvgHeight;
 
     this.state = {
         selectedNode: null,
@@ -47,29 +51,33 @@ export class SvgGraphComponent implements OnInit {
     var d3objects = this.d3objects;
 
   	// Set the svg tag to the dimensions of the body
-  	var bodyEl = document.getElementsByTagName('body')[0];
+  	// var bodyEl = document.getElementsByTagName('body')[0];
 
-    var width = window.innerWidth || bodyEl.clientWidth;
-    var height = window.innerHeight || bodyEl.clientHeight;
+   //  var width = window.innerWidth || bodyEl.clientWidth;
+   //  var height = window.innerHeight || bodyEl.clientHeight;
 
     var svg = d3.select('svg')
-        .attr('width', width)
-        .attr('height', height);
+        .attr('width', this.settings.initSvgWidth)
+        .attr('height', this.settings.initSvgHeight);
+
     d3objects.svg = svg;
+
+    var startX = this.settings.startX;
+    var startY = this.settings.startY;
 
     // Init nodeList with start & end node
     var startNode : Node = { 
   		id: 'startNode', 
   		title: GraphConsts.startNodeLabel, 
-  		x: 300, 
-  		y: 200, 
+  		x: startX, 
+  		y: startY, 
   		dep: []
   	};
     var endNode: Node = { 
   		id: 'endNode', 
   		title: GraphConsts.endNodeLabel, 
-  		x: 300 + this.settings.nodeWidth * this.settings.pathMultiplier * 2, 
-  		y: 200, 
+  		x: startX + this.settings.nodeWidth * this.settings.pathMultiplier * 2, 
+  		y: startY, 
   		dep:[]
   	};
     this.nodes.push(startNode, endNode);
@@ -79,8 +87,8 @@ export class SvgGraphComponent implements OnInit {
   	var approver: Node = { 
   		id: GraphConsts.nodeIdTag+this.idct++, 
   		title: 'supervisor', 
-  		x: 300 + this.settings.nodeWidth * this.settings.pathMultiplier, 
-  		y: 200,
+  		x: startX + this.settings.nodeWidth * this.settings.pathMultiplier, 
+  		y: startY,
   		dep: []
   	};
   	this.nodes.push(approver);
@@ -450,6 +458,7 @@ export class SvgGraphComponent implements OnInit {
         return data.id == modifiedEdge.target.id;
       });
 
+      var expand = false;
       for (var i in thisGraph.nodes) {
           if (leftNode.length > 0 && target.x < leftNode[0].x) {
             // There is enough space, don't need to move them...
@@ -457,7 +466,15 @@ export class SvgGraphComponent implements OnInit {
           }
           else if (thisGraph.nodes[i].x >= target.x && thisGraph.nodes[i] != target) {
             thisGraph.nodes[i].x += settings.nodeWidth * settings.pathMultiplier;
+
+            expand = true;
           }
+      }
+
+      // expand our svg div horizontally for scrolling
+      if (expand) {
+        thisGraph.svgWidth += settings.nodeWidth * settings.pathMultiplier;
+        thisGraph.d3objects.svg.attr("width", thisGraph.svgWidth);
       }
 
       thisGraph.edges.push(newEdge);
@@ -494,6 +511,12 @@ export class SvgGraphComponent implements OnInit {
       for (var i in thisGraph.nodes) {
           if (thisGraph.nodes[i].y >= target.y && thisGraph.nodes[i] != target) {
               thisGraph.nodes[i].y += settings.nodeHeight * settings.pathMultiplier;
+          }
+
+          // expand our svg div vertically for scrolling
+          if (thisGraph.nodes[i].y >= thisGraph.svgHeight) {
+            thisGraph.svgHeight += settings.nodeHeight * settings.pathMultiplier;
+            thisGraph.d3objects.svg.attr("height", thisGraph.svgHeight);
           }
       }
   };
@@ -611,6 +634,8 @@ export class SvgGraphComponent implements OnInit {
   // RC: create new parallel node with edge
   appendParallelNode(d: any) {
     var settings = this.settings;
+    var d3objects = this.d3objects;
+
     var xycoords = [d.x, d.y + settings.nodeHeight * settings.pathMultiplier];
     var newNode = this.pushNewNode(xycoords);
     this.pushNewParallelEdges(d, newNode);
@@ -622,6 +647,8 @@ export class SvgGraphComponent implements OnInit {
   // RC: create new serial node with edge
   appendSerialNode(d: any) {
     var settings = this.settings;
+    var d3objects = this.d3objects;
+
     var xycoords = [d.x + settings.nodeWidth * settings.pathMultiplier, d.y];
     var newNode:Node = this.pushNewNode(xycoords);
     this.pushNewSerialEdges(d, newNode, false);
@@ -632,11 +659,15 @@ export class SvgGraphComponent implements OnInit {
 
   // RC: create new serial node with edge (used for EndNode)
   prependSerialNode(d: any) {
+    var settings = this.settings;
+    var d3objects = this.d3objects;
+
     var xycoords = [d.x, d.y];
     var newNode = this.pushNewNode(xycoords);
     this.pushNewSerialEdges(d, newNode, true);
-
     this.updateGraph();
+
+    console.log("serial" + window.JSON.stringify(newNode));
   }
 
   updateApprovalBoxes(newGs: any) {
