@@ -126,51 +126,13 @@ export class SvgGraphComponent implements OnInit {
     // svg nodes and edges
     d3objects.paths = svgG.append("g").attr("id", "paths-group").selectAll("g");
     d3objects.boxes = svgG.append("g").attr("id", "nodes-group").selectAll("g");
-    d3objects.tools = svgG.append("g").attr("id", "tools-group");
-    
-    var outputButton = d3objects.tools.append("g")
-        .on("mouseup", (d) => {
-           this.outputGraphMetadata();
-        })
-        .attr("transform", "translate(5, 5)");
-
-    outputButton.append("rect")
-        .attr("width", 60)
-        .attr("height", 30)
-        .style("fill", "white")
-        .style("stroke", "gray")
-        .style("stroke-width", 1)
-        
-
-    outputButton.append("text")
-        .text("Output")
-        .attr("font-size", 16)
-        .attr("dx",8)
-        .attr("dy", 20);
-
-
-    var inputButton = d3objects.tools.append("g")
-        .on("mouseup", (d) => {
-           document.getElementById('hidden-meta-input').click();
-        })
-        .attr("transform", "translate(70, 5)");
-
-    inputButton.append("rect")
-        .attr("width", 60)
-        .attr("height", 30)
-        .style("fill", "white")
-        .style("stroke", "gray")
-        .style("stroke-width", 1);
-
-    inputButton.append("text")
-        .text("Input")
-        .attr("font-size", 16)
-        .attr("dx", 13)
-        .attr("dy", 20);
-
 
     // Draw graph
   	this.updateGraph();
+  }
+
+  inputButtonClicked() {
+    document.getElementById('hidden-meta-input').click();
   }
 
   outputGraphMetadata() {
