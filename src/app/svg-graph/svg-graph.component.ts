@@ -1,6 +1,6 @@
 import * as D3 from 'd3';
 import { Component, OnInit } from '@angular/core';
-import { Node, Edge, RenderConfig, GraphConsts, NodeStates } from '../classes';
+import { Node, Edge, RenderConfig, GraphConsts } from '../shared';
 
 declare var window;
 let d3:any = D3;
@@ -379,19 +379,17 @@ export class SvgGraphComponent implements OnInit {
 
       d3node.selectAll("text[text-anchor]").remove();
 
-      var nodeBCR = htmlEl.getBoundingClientRect(),
-          curScale = nodeBCR.width / settings.nodeRadius,
-          placePad = 5 * curScale,
-          useHW = curScale > 1 ? nodeBCR.width * 0.71 : settings.nodeRadius * 1.42;
       // replace with editableconent text
       var d3txt = d3objects.svg.selectAll("foreignObject")
           .data([d])
           .enter()
           .append("foreignObject")
-          .attr("x", nodeBCR.left + placePad)
-          .attr("y", nodeBCR.top + placePad)
-          .attr("height", 2 * useHW)
-          .attr("width", useHW)
+          .attr("x", d.x)
+          .attr("y", d.y)
+          .attr("width", settings.nodeWidth)
+          .attr("height", settings.nodeHeight)
+          .attr("style", "text-align: center; vertical-align: middle;")
+          .attr("transform", "translate(" + -settings.nodeWidth/2+ ", -14)")
           .append("xhtml:p")
           .attr("id", consts.activeEditId)
           .attr("contentEditable", "true")
